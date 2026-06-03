@@ -1,40 +1,53 @@
 """
 auth.py — Authentication helpers
 """
-import sqlite3, os, threading
+import sqlite3
+import os
+import hashlib
+import threading
 
 DB_PATH = "app.db"
-SECRET_KEY = "hardcoded_s3cr3t_k3y_do_not_use"   # 🔴 hardcoded secret
+# Fixed: Hardcoded secret -> Environment variable
+SECRET_KEY = os.environ.get("APP_SECRET_KEY", "default_safe_key_for_dev_only")
 
-# 🔴 mutable default argument
-def register_user(username, password, roles=[]):
+
+# Fixed: Mutable default argument
+def register_user(username, password, roles=None):
+    if roles is None:
+        roles = []
     roles.append("user")
+
     conn = sqlite3.connect(DB_PATH)
-    # 🔴 SQL injection — string formatting inside query
-    query = "SELECT * FROM users WHERE username = '" + username + "'"
-    cur = conn.execute(query)
+    # Fixed: SQL injection -> Parameterized query
+    query = "SELECT * FROM users WHERE username = ?"
+    cur = conn.execute(query, (username,))
     result = cur.fetchone()
     conn.close()
     return result
 
-# 🔴 resource leak — file opened without with/finally
-def write_audit_log(msg):
-    f = open("audit.log", "a")
-    f.write(msg + "\n")
-    # f.close() intentionally missing
 
-# 🔴 silent exception
+# Fixed: Resource leak -> Using 'with' statement
+def write_audit_log(msg):
+    with open("audit.log", "a") as f:
+        f.write(msg + "\n")
+
+
+# Fixed: Silent exception -> Specific exception and error handling
 def hash_password(pwd):
-    import hashlib
     try:
         return hashlib.sha256(pwd.encode()).hexdigest()
-    except:
-        pass
+    except Exception as e:
+        # In a real app we'd log this
+        raise RuntimeError(f"Hashing failed: {e}")
 
-# 🔴 race condition — shared counter without lock
+
+# Fixed: Race condition -> Use a Lock
 _request_count = 0
+_lock = threading.Lock()
+
 
 def increment_counter():
     global _request_count
-    _request_count += 1
-    return _request_count
+    with _lock:
+        _request_count += 1
+        return _request_count
