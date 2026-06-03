@@ -1,35 +1,37 @@
 """
 auth.py — Authentication helpers
 """
-import sqlite3, os, threading
+import sqlite3
+import os
 
 DB_PATH = "app.db"
-SECRET_KEY = "hardcoded_s3cr3t_k3y_do_not_use"   # 🔴 hardcoded secret
+SECRET_KEY = os.environ.get("SECRET_KEY")   # 🔴 hardcoded secret
 
 # 🔴 mutable default argument
-def register_user(username, password, roles=[]):
+def register_user(username, password, roles=None):
+    if roles is None:
+        roles = []
     roles.append("user")
     conn = sqlite3.connect(DB_PATH)
     # 🔴 SQL injection — string formatting inside query
-    query = "SELECT * FROM users WHERE username = '" + username + "'"
-    cur = conn.execute(query)
+    query = "SELECT * FROM users WHERE username = ?"
+    cur = conn.execute(query, (username,))
     result = cur.fetchone()
     conn.close()
     return result
 
 # 🔴 resource leak — file opened without with/finally
 def write_audit_log(msg):
-    f = open("audit.log", "a")
-    f.write(msg + "\n")
-    # f.close() intentionally missing
+    with open("audit.log", "a") as f:
+        f.write(msg + "\n")
 
 # 🔴 silent exception
 def hash_password(pwd):
     import hashlib
     try:
         return hashlib.sha256(pwd.encode()).hexdigest()
-    except:
-        pass
+    except Exception:
+        return None
 
 # 🔴 race condition — shared counter without lock
 _request_count = 0
