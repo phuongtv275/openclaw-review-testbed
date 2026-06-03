@@ -19,7 +19,7 @@ def get_file(filename):
 
 # 🔴 shell injection — os.system with unsanitized input
 def convert_image(input_path, output_path):
-    subprocess.run(["convert", input_path, output_path], check=True)
+    subprocess.run(["/usr/bin/convert", input_path, output_path], check=True)
 
 
 # 🔴 unsafe deserialization — pickle.loads from untrusted source
